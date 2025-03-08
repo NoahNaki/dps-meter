@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from datetime import datetime
+import ctypes
 
 class DPSWindow(tk.Tk):
     BAR_HEIGHT = 30
@@ -13,8 +14,8 @@ class DPSWindow(tk.Tk):
         # -------------------------
         # 1) Remove OS window frame
         # -------------------------
-        # This hides the standard Windows close/minimize/maximize buttons and title bar
         self.overrideredirect(True)
+        self.attributes("-topmost", True)
 
         # Set a default size for the window
         self.geometry("300x350")
@@ -26,15 +27,12 @@ class DPSWindow(tk.Tk):
         # -------------------------
         # 2) Create Custom Title Bar
         # -------------------------
-        # This frame will act like our own title bar
         self.custom_title_bar = tk.Frame(self, bg="#2B2B2B", height=30)
         self.custom_title_bar.pack(fill="x", side="top")
 
-        # Bind mouse events to let the user drag the window
         self.custom_title_bar.bind("<Button-1>", self.start_move)
         self.custom_title_bar.bind("<B1-Motion>", self.on_move)
 
-        # Title text on our custom bar
         self.title_label = tk.Label(
             self.custom_title_bar,
             text="Combat DPS Meter",
@@ -43,10 +41,9 @@ class DPSWindow(tk.Tk):
         )
         self.title_label.pack(side="left", padx=10)
 
-        # Minimize button
         self.minimize_button = tk.Button(
             self.custom_title_bar,
-            text="—",  # En dash
+            text="—",
             fg="white",
             bg="#2B2B2B",
             bd=0,
@@ -54,7 +51,6 @@ class DPSWindow(tk.Tk):
         )
         self.minimize_button.pack(side="right", padx=5)
 
-        # Close button
         self.close_button = tk.Button(
             self.custom_title_bar,
             text="x",
@@ -68,23 +64,19 @@ class DPSWindow(tk.Tk):
         # -------------------------
         # (Below is your original code, unchanged except for the removed self.title() call)
         # -------------------------
-
         self.aggregator = aggregator
 
-        # Start in dark mode by default with our custom colors:
         self.dark_mode = True
-        self.bg_color = "#23242b"     # Background color
-        self.bar_color = "#db8d43"    # DPS bar fill color
-        self.text_color = "#ffffff"   # General text (actor names)
-        self.dps_text_color = "#61dc70"  # DPS numbers
+        self.bg_color = "#23242b"
+        self.bar_color = "#db8d43"
+        self.text_color = "#ffffff"
+        self.dps_text_color = "#61dc70"
 
-        # Setup ttk style
         self.style = ttk.Style(self)
         self.style.theme_use('clam')
 
         # Create a Notebook with three tabs: "DPS Meter", "Settings", "Detailed"
         self.notebook = ttk.Notebook(self, style="CustomNotebook.TNotebook")
-        # Note: We'll pack the Notebook into a Frame below so it doesn't overlap the custom title
         self.notebook.pack(fill="both", expand=True)
 
         # DPS Meter tab
@@ -99,26 +91,36 @@ class DPSWindow(tk.Tk):
         self.detailed_frame = ttk.Frame(self.notebook, style="CustomFrame.TFrame")
         self.notebook.add(self.detailed_frame, text="Detailed")
 
-        # Build the UI for each tab
+        # Bind the tab change event
+        self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_change)
+
         self.build_dps_ui(self.meter_frame)
         self.build_settings_ui(self.settings_frame)
         self.build_detailed_ui(self.detailed_frame)
 
-        # Apply our custom dark theme
         self.apply_theme()
 
-        # Start periodic UI updates
         self.update_ui()
+
+    def on_tab_change(self, event):
+        # When the tab changes, get the index of the current tab.
+        current_tab = self.notebook.index("current")
+        # Check if the detailed tab (index 2) is selected.
+        if current_tab == 2:
+            # Set a new geometry for the detailed tab.
+            # This size can be adjusted as needed.
+            self.geometry("700x350")
+        else:
+            # Set back to the default size for other tabs.
+            self.geometry("300x350")
 
     # -----------------------------
     #  Build the DPS Meter UI
     # -----------------------------
     def build_dps_ui(self, container):
-        # Top control area with the reset button
         top_frame = tk.Frame(container, bg=self.bg_color)
         top_frame.pack(side="top", fill="x", padx=10, pady=5)
 
-        # Reset button
         self.reset_button = ttk.Button(
             top_frame,
             text="🧹",
@@ -128,7 +130,6 @@ class DPSWindow(tk.Tk):
         )
         self.reset_button.pack(side="right")
 
-        # Container for DPS rows
         self.rows_frame = tk.Frame(container, bg=self.bg_color)
         self.rows_frame.pack(side="top", fill="both", expand=True, padx=10, pady=5)
 
@@ -139,11 +140,9 @@ class DPSWindow(tk.Tk):
     #  Build the Settings UI
     # -----------------------------
     def build_settings_ui(self, container):
-        # Opacity slider label
         opacity_label = ttk.Label(container, text="Window Opacity:", style="CustomLabel.TLabel")
         opacity_label.pack(pady=(10, 0))
 
-        # Opacity slider
         self.opacity_scale = tk.Scale(
             container,
             from_=0.2,
@@ -158,7 +157,6 @@ class DPSWindow(tk.Tk):
         self.opacity_scale.set(1.0)
         self.opacity_scale.pack(pady=10, padx=10, fill="x")
 
-        # Dark mode toggle
         self.dark_mode_var = tk.BooleanVar(value=self.dark_mode)
         dark_mode_check = ttk.Checkbutton(
             container,
@@ -173,14 +171,10 @@ class DPSWindow(tk.Tk):
     #  Build the Detailed UI
     # -----------------------------
     def build_detailed_ui(self, container):
-        """
-        In this tab, we'll show Name, DPS, Duration, %Damage, Crit%, and Highest Hit.
-        """
         columns = ("Name", "DPS", "Duration", "%Damage", "Crit%", "Highest Hit")
         self.detailed_tree = ttk.Treeview(container, columns=columns, show="headings", height=10)
         self.detailed_tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Set up headings
         self.detailed_tree.heading("Name", text="Name")
         self.detailed_tree.heading("DPS", text="DPS")
         self.detailed_tree.heading("Duration", text="Duration")
@@ -188,7 +182,6 @@ class DPSWindow(tk.Tk):
         self.detailed_tree.heading("Crit%", text="Crit %")
         self.detailed_tree.heading("Highest Hit", text="Highest Hit")
 
-        # Set column widths
         self.detailed_tree.column("Name", width=100, anchor="center")
         self.detailed_tree.column("DPS", width=80, anchor="center")
         self.detailed_tree.column("Duration", width=80, anchor="center")
@@ -196,9 +189,6 @@ class DPSWindow(tk.Tk):
         self.detailed_tree.column("Crit%", width=60, anchor="center")
         self.detailed_tree.column("Highest Hit", width=80, anchor="center")
 
-    # -----------------------------
-    #  Toggle Dark Mode
-    # -----------------------------
     def toggle_dark_mode(self):
         self.dark_mode = self.dark_mode_var.get()
         if self.dark_mode:
@@ -213,9 +203,6 @@ class DPSWindow(tk.Tk):
             self.dps_text_color = "#00C781"
         self.apply_theme()
 
-    # -----------------------------
-    #  Apply Theme
-    # -----------------------------
     def apply_theme(self):
         self.style.configure(
             "CustomNotebook.TNotebook",
@@ -263,7 +250,6 @@ class DPSWindow(tk.Tk):
         self.notebook.configure(style="CustomNotebook.TNotebook")
         self.opacity_scale.configure(bg=self.bg_color, fg=self.text_color, highlightbackground=self.bg_color)
 
-        # Update existing UI elements
         self.update_dps_area_theme()
 
     def update_dps_area_theme(self):
@@ -278,9 +264,6 @@ class DPSWindow(tk.Tk):
         except Exception as e:
             print("Error updating opacity:", e)
 
-    # -----------------------------
-    #  Load Class Icons
-    # -----------------------------
     def load_class_icons(self):
         try:
             bm_full = tk.PhotoImage(file=r"C:\Users\noahs\Desktop\dreadps\assets\blademaster.png")
@@ -303,8 +286,6 @@ class DPSWindow(tk.Tk):
 
             su_full = tk.PhotoImage(file=r"C:\Users\noahs\Desktop\dreadps\assets\summoner.png")
             su_icon = su_full.subsample(2, 2)
-            # ... add or downscale others as needed ...
-
             return {
                 "Blade Master": bm_icon,
                 "Blade Dancer": bd_icon,
@@ -315,19 +296,13 @@ class DPSWindow(tk.Tk):
                 "Summoner": su_icon
             }
         except Exception:
-            # If icons can't be loaded, return an empty dict to avoid crashes
             return {}
 
-    # -----------------------------
-    #  Update UI
-    # -----------------------------
     def update_ui(self):
-        # Retrieve stats from the aggregator
         stats = self.aggregator.get_stats()
         now = datetime.now()
         duration = (now - self.aggregator.global_start_time).total_seconds() if self.aggregator.global_start_time else 0
 
-        # Sort by DPS (total_damage / duration)
         sorted_actors = sorted(
             stats.items(),
             key=lambda x: (x[1]["total_damage"] / duration) if duration > 0 else 0,
@@ -335,19 +310,12 @@ class DPSWindow(tk.Tk):
         )
         max_damage = max((data["total_damage"] for _, data in sorted_actors), default=1)
 
-        # 1) Update DPS meter
         self.update_dps_tab(sorted_actors, max_damage, duration)
-        # 2) Update Detailed tab
         self.update_detailed_tab(sorted_actors, duration)
 
-        # Schedule next update
         self.after(1000, self.update_ui)
 
-    # -----------------------------
-    #  Update DPS Tab
-    # -----------------------------
     def update_dps_tab(self, sorted_actors, max_damage, duration):
-        # Remove rows for actors no longer in stats
         current_actors = set(a for a, _ in sorted_actors)
         existing_actors = set(self.row_widgets.keys())
         for actor in existing_actors - current_actors:
@@ -355,7 +323,6 @@ class DPSWindow(tk.Tk):
             frame.destroy()
             del self.row_widgets[actor]
 
-        # Update or create rows
         for actor, data in sorted_actors:
             if actor not in self.row_widgets:
                 row_frame = tk.Frame(self.rows_frame, bg=self.bg_color)
@@ -379,19 +346,16 @@ class DPSWindow(tk.Tk):
             bar_width = max(1, int(ratio * self.BAR_MAX_WIDTH))
             dps = total_damage / duration if duration > 0 else 0
 
-            # Draw the DPS bar
-            c.create_rectangle(0, 0, bar_width, self.BAR_HEIGHT, fill=self.bar_color, outline="")
+            DPSWindow.create_rounded_rectangle(c, 0, 0, bar_width, self.BAR_HEIGHT, radius=1, fill=self.bar_color, outline="")
 
-            # Optionally display class icon
             actor_class = data.get("class", None)
             if actor_class and actor_class in self.class_icons:
-                c.create_image(2, self.BAR_HEIGHT // 2, anchor="w", image=self.class_icons[actor_class])
-                text_offset_x = 50
+                c.create_image(0, self.BAR_HEIGHT // 2, anchor="w", image=self.class_icons[actor_class])
+                text_offset_x = 40
             else:
                 text_offset_x = 5
 
-            # 1) Draw the actor name with a black outline
-            outline_offsets = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+            outline_offsets = [(1, 1)]
             for dx, dy in outline_offsets:
                 c.create_text(
                     text_offset_x + dx,
@@ -410,7 +374,6 @@ class DPSWindow(tk.Tk):
                 font=("Roboto", 10, "bold")
             )
 
-            # 2) Draw the DPS text with a black outline
             dps_text = f"{int(dps):,}/sec"
             dps_text_x = self.BAR_MAX_WIDTH - 5
             dps_text_y = self.BAR_HEIGHT // 2
@@ -432,21 +395,15 @@ class DPSWindow(tk.Tk):
                 font=("Roboto", 10, "bold")
             )
 
-        # Re-pack frames in sorted order
         for idx, (actor, data) in enumerate(sorted_actors):
             row_frame, _ = self.row_widgets[actor]
             row_frame.pack_forget()
             row_frame.pack(fill="x", pady=(0 if idx == 0 else self.BAR_SPACING))
 
-    # -----------------------------
-    #  Update Detailed Tab
-    # -----------------------------
     def update_detailed_tab(self, sorted_actors, duration):
-        # Clear existing rows
         for item in self.detailed_tree.get_children():
             self.detailed_tree.delete(item)
 
-        # Compute total damage for % calculations
         total_damage_all = sum(data["total_damage"] for _, data in sorted_actors)
 
         for actor, data in sorted_actors:
@@ -463,23 +420,19 @@ class DPSWindow(tk.Tk):
             dmg_percent_str = f"{dmg_percent:.1f}%"
             crit_percent_str = f"{crit_percent:.1f}%"
 
-            # Insert row
             self.detailed_tree.insert(
                 "",
                 tk.END,
                 values=(
-                    actor,               # Name
-                    f"{int(dps):,}",    # DPS (no "/sec" in the table)
+                    actor,
+                    f"{int(dps):,}",
                     duration_str,
                     dmg_percent_str,
                     crit_percent_str,
-                    f"{highest_hit:,}"  # Highest Hit
+                    f"{highest_hit:,}"
                 )
             )
 
-    # -----------------------------
-    #  Reset Meter
-    # -----------------------------
     def reset_meter(self):
         self.aggregator.reset()
         for actor in list(self.row_widgets.keys()):
@@ -487,25 +440,41 @@ class DPSWindow(tk.Tk):
             frame.destroy()
             del self.row_widgets[actor]
 
-    # ---------------------------------------------------
-    # Custom Title Bar Methods for dragging/minimizing/etc
-    # ---------------------------------------------------
     def start_move(self, event):
-        """Capture the initial offset when the user clicks on the custom title bar."""
         self._offset_x = event.x
         self._offset_y = event.y
 
     def on_move(self, event):
-        """Drag (move) the window according to the mouse movement."""
         x = self.winfo_x() + event.x - self._offset_x
         y = self.winfo_y() + event.y - self._offset_y
         self.geometry(f"+{x}+{y}")
 
     def close_window(self):
-        """Close the application."""
         self.destroy()
 
     def minimize_window(self):
-        """Minimize (iconify) the application."""
         self.update_idletasks()
         self.iconify()
+
+    def create_rounded_rectangle(canvas, x1, y1, x2, y2, radius=10, **kwargs):
+        radius = min(radius, abs(x2 - x1) // 2, abs(y2 - y1) // 2)
+        canvas.create_arc(x1, y1, x1 + 2 * radius, y1 + 2 * radius, start=90, extent=90, style="pieslice", **kwargs)
+        canvas.create_arc(x2 - 2 * radius, y1, x2, y1 + 2 * radius, start=0, extent=90, style="pieslice", **kwargs)
+        canvas.create_arc(x2 - 2 * radius, y2 - 2 * radius, x2, y2, start=270, extent=90, style="pieslice", **kwargs)
+        canvas.create_arc(x1, y2 - 2 * radius, x1 + 2 * radius, y2, start=180, extent=90, style="pieslice", **kwargs)
+        canvas.create_rectangle(x1 + radius, y1, x2 - radius, y2, **kwargs)
+        canvas.create_rectangle(x1, y1 + radius, x2, y2 - radius, **kwargs)
+
+    def _make_window_appwindow(self):
+        GWL_EXSTYLE = -20
+        WS_EX_APPWINDOW = 0x00040000
+
+        hwnd = self.winfo_id()
+        style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        style |= WS_EX_APPWINDOW
+        ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
+
+        ctypes.windll.user32.SetWindowPos(
+            hwnd, 0, 0, 0, 0, 0,
+            0x0002 | 0x0001  # SWP_NOMOVE | SWP_NOSIZE
+        )
