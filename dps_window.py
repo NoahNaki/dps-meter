@@ -62,7 +62,7 @@ class DPSWindow(tk.Tk):
         self.close_button.pack(side="right", padx=5)
 
         # -------------------------
-        # (Below is your original code, unchanged except for the removed self.title() call)
+        # (Below is your original code, with minor changes)
         # -------------------------
         self.aggregator = aggregator
 
@@ -107,11 +107,8 @@ class DPSWindow(tk.Tk):
         current_tab = self.notebook.index("current")
         # Check if the detailed tab (index 2) is selected.
         if current_tab == 2:
-            # Set a new geometry for the detailed tab.
-            # This size can be adjusted as needed.
             self.geometry("700x350")
         else:
-            # Set back to the default size for other tabs.
             self.geometry("300x350")
 
     # -----------------------------
@@ -121,6 +118,17 @@ class DPSWindow(tk.Tk):
         top_frame = tk.Frame(container, bg=self.bg_color)
         top_frame.pack(side="top", fill="x", padx=10, pady=5)
 
+        # Instead of loading an image, use the gear emoji ⚙️ for the settings button
+        self.settings_button = ttk.Button(
+            top_frame,
+            text="⚙️",
+            command=self.show_settings_menu,
+            style="Accent.TButton",
+            width=2  # Force a small square
+        )
+        self.settings_button.pack(side="right", padx=5)
+
+        # The reset button using an emoji; already using a broom emoji 🧹 here
         self.reset_button = ttk.Button(
             top_frame,
             text="🧹",
@@ -128,7 +136,7 @@ class DPSWindow(tk.Tk):
             width=2,
             style="Accent.TButton"
         )
-        self.reset_button.pack(side="right")
+        self.reset_button.pack(side="right", padx=5)
 
         self.rows_frame = tk.Frame(container, bg=self.bg_color)
         self.rows_frame.pack(side="top", fill="both", expand=True, padx=10, pady=5)
@@ -188,6 +196,44 @@ class DPSWindow(tk.Tk):
         self.detailed_tree.column("%Damage", width=80, anchor="center")
         self.detailed_tree.column("Crit%", width=60, anchor="center")
         self.detailed_tree.column("Highest Hit", width=80, anchor="center")
+
+    def show_settings_menu(self):
+        # Create a dropdown menu for settings options
+        menu = tk.Menu(self, tearoff=0)
+        menu.add_command(label="DPS Meter Tab", command=self.switch_to_dps_meter)
+        menu.add_command(label="Detailed Tab", command=self.switch_to_detailed)
+        menu.add_separator()
+        menu.add_command(label="Increase Opacity", command=self.increase_opacity)
+        menu.add_command(label="Decrease Opacity", command=self.decrease_opacity)
+        menu.add_separator()
+        menu.add_command(label="Toggle Dark/Light Mode", command=self.toggle_dark_mode_via_menu)
+        # Popup the menu at the current pointer location
+        try:
+            menu.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
+        finally:
+            menu.grab_release()
+
+    def switch_to_dps_meter(self):
+        self.notebook.select(self.meter_frame)
+
+    def switch_to_detailed(self):
+        self.notebook.select(self.detailed_frame)
+
+    def increase_opacity(self):
+        current = self.attributes("-alpha")
+        new_val = min(1.0, current + 0.05)
+        self.attributes("-alpha", new_val)
+        self.opacity_scale.set(new_val)
+
+    def decrease_opacity(self):
+        current = self.attributes("-alpha")
+        new_val = max(0.2, current - 0.05)
+        self.attributes("-alpha", new_val)
+        self.opacity_scale.set(new_val)
+
+    def toggle_dark_mode_via_menu(self):
+        self.dark_mode_var.set(not self.dark_mode_var.get())
+        self.toggle_dark_mode()
 
     def toggle_dark_mode(self):
         self.dark_mode = self.dark_mode_var.get()
