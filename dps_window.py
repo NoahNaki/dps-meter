@@ -1,3 +1,4 @@
+from PIL import Image, ImageTk
 import tkinter as tk
 from tkinter import ttk
 from datetime import datetime
@@ -8,26 +9,26 @@ class DPSWindow(tk.Tk):
     BAR_MAX_WIDTH = 270
     BAR_SPACING = 4
 
+    class DPSWindow(tk.Tk):
+        BAR_HEIGHT = 30
+    BAR_MAX_WIDTH = 270
+    BAR_SPACING = 4
+
     def __init__(self, aggregator):
         super().__init__()
 
-        # -------------------------
-        # 1) Remove OS window frame
-        # -------------------------
+        # Remove OS window frame, set topmost, default geometry
         self.overrideredirect(True)
         self.attributes("-topmost", True)
-
-        # Set a default size for the window
         self.geometry("300x350")
 
-        # We'll track offsets for dragging the window
+        # Track offsets for dragging
         self._offset_x = 0
         self._offset_y = 0
 
-        # -------------------------
-        # 2) Create Custom Title Bar
-        # -------------------------
-        self.custom_title_bar = tk.Frame(self, bg="#2B2B2B", height=30)
+        # Create custom title bar
+        top_bar_bg = "#2E3B40"
+        self.custom_title_bar = tk.Frame(self, bg=top_bar_bg, height=30)
         self.custom_title_bar.pack(fill="x", side="top")
 
         self.custom_title_bar.bind("<Button-1>", self.start_move)
@@ -35,37 +36,69 @@ class DPSWindow(tk.Tk):
 
         self.title_label = tk.Label(
             self.custom_title_bar,
-            text="Combat DPS Meter",
+            text="Dread DPS Meter",
             fg="white",
-            bg="#2B2B2B"
+            bg=top_bar_bg,
+            font=("Helvetica", 12, "bold")
         )
         self.title_label.pack(side="left", padx=10)
 
-        self.minimize_button = tk.Button(
-            self.custom_title_bar,
-            text="—",
-            fg="white",
-            bg="#2B2B2B",
-            bd=0,
-            command=self.minimize_window
-        )
-        self.minimize_button.pack(side="right", padx=5)
+        # Load icons with Pillow
+        cogwheel_pil      = Image.open(r"C:\Users\noahs\Desktop\dreadps\assets\gear.png").resize((16, 16), Image.Resampling.LANCZOS)
+        info_pil          = Image.open(r"C:\Users\noahs\Desktop\dreadps\assets\infobubble.png").resize((16, 16), Image.Resampling.LANCZOS)
+        x_pil             = Image.open(r"C:\Users\noahs\Desktop\dreadps\assets\cross.png").resize((16, 16), Image.Resampling.LANCZOS)
+        data_cleaning_pil = Image.open(r"C:\Users\noahs\Desktop\dreadps\assets\bin.png").resize((16, 16), Image.Resampling.LANCZOS)
+
+        self.cogwheel_img      = ImageTk.PhotoImage(cogwheel_pil)
+        self.info_img          = ImageTk.PhotoImage(info_pil)
+        self.x_img             = ImageTk.PhotoImage(x_pil)
+        self.data_cleaning_img = ImageTk.PhotoImage(data_cleaning_pil)
 
         self.close_button = tk.Button(
             self.custom_title_bar,
-            text="x",
-            fg="white",
-            bg="#2B2B2B",
-            bd=0,
+            image=self.x_img,
+            bg=top_bar_bg,
+            borderwidth=0,
+            highlightthickness=0,
+            activebackground=top_bar_bg,
             command=self.close_window
         )
         self.close_button.pack(side="right", padx=5)
 
-        # -------------------------
-        # (Below is your original code, with minor changes)
-        # -------------------------
-        self.aggregator = aggregator
+        self.info_button = tk.Button(
+            self.custom_title_bar,
+            image=self.info_img,
+            bg=top_bar_bg,
+            borderwidth=0,
+            highlightthickness=0,
+            activebackground=top_bar_bg
+        )
+        self.info_button.pack(side="right", padx=5)
 
+        self.cogwheel_button = tk.Button(
+            self.custom_title_bar,
+            image=self.cogwheel_img,
+            bg=top_bar_bg,
+            borderwidth=0,
+            highlightthickness=0,
+            activebackground=top_bar_bg,
+            command=self.show_settings_menu  # Optional: keep if you want settings via a popup menu
+        )
+        self.cogwheel_button.pack(side="right", padx=5)
+
+        self.reset_png_button = tk.Button(
+            self.custom_title_bar,
+            image=self.data_cleaning_img,
+            bg=top_bar_bg,
+            borderwidth=0,
+            highlightthickness=0,
+            activebackground=top_bar_bg,
+            command=self.reset_meter
+        )
+        self.reset_png_button.pack(side="right", padx=5)
+
+        # Store aggregator, set default theme values
+        self.aggregator = aggregator
         self.dark_mode = True
         self.bg_color = "#23242b"
         self.bar_color = "#db8d43"
@@ -75,32 +108,24 @@ class DPSWindow(tk.Tk):
         self.style = ttk.Style(self)
         self.style.theme_use('clam')
 
-        # Create a Notebook with three tabs: "DPS Meter", "Settings", "Detailed"
-        self.notebook = ttk.Notebook(self, style="CustomNotebook.TNotebook")
-        self.notebook.pack(fill="both", expand=True)
+        # ----------------------------
+        # Create TWO frames in the window
+        # ----------------------------
+        self.dps_frame = tk.Frame(self, bg=self.bg_color)
+        self.detailed_frame = tk.Frame(self, bg=self.bg_color)
 
-        # DPS Meter tab
-        self.meter_frame = ttk.Frame(self.notebook, style="CustomFrame.TFrame")
-        self.notebook.add(self.meter_frame, text="DPS Meter")
-
-        # Settings tab
-        self.settings_frame = ttk.Frame(self.notebook, style="CustomFrame.TFrame")
-        self.notebook.add(self.settings_frame, text="Settings")
-
-        # Detailed tab
-        self.detailed_frame = ttk.Frame(self.notebook, style="CustomFrame.TFrame")
-        self.notebook.add(self.detailed_frame, text="Detailed")
-
-        # Bind the tab change event
-        self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_change)
-
-        self.build_dps_ui(self.meter_frame)
-        self.build_settings_ui(self.settings_frame)
+        # Build each UI
+        self.build_dps_ui(self.dps_frame)
         self.build_detailed_ui(self.detailed_frame)
 
-        self.apply_theme()
+        # Show only the DPS frame by default
+        self.dps_frame.pack(fill="both", expand=True)
 
+        self.apply_theme()
         self.update_ui()
+
+
+
 
     def on_tab_change(self, event):
         # When the tab changes, get the index of the current tab.
@@ -117,26 +142,6 @@ class DPSWindow(tk.Tk):
     def build_dps_ui(self, container):
         top_frame = tk.Frame(container, bg=self.bg_color)
         top_frame.pack(side="top", fill="x", padx=10, pady=5)
-
-        # Instead of loading an image, use the gear emoji ⚙️ for the settings button
-        self.settings_button = ttk.Button(
-            top_frame,
-            text="⚙️",
-            command=self.show_settings_menu,
-            style="Accent.TButton",
-            width=2  # Force a small square
-        )
-        self.settings_button.pack(side="right", padx=5)
-
-        # The reset button using an emoji; already using a broom emoji 🧹 here
-        self.reset_button = ttk.Button(
-            top_frame,
-            text="🧹",
-            command=self.reset_meter,
-            width=2,
-            style="Accent.TButton"
-        )
-        self.reset_button.pack(side="right", padx=5)
 
         self.rows_frame = tk.Frame(container, bg=self.bg_color)
         self.rows_frame.pack(side="top", fill="both", expand=True, padx=10, pady=5)
@@ -180,13 +185,12 @@ class DPSWindow(tk.Tk):
     # -----------------------------
     def build_detailed_ui(self, container):
         columns = ("Name", "DPS", "Duration", "%Damage", "Crit%", "Highest Hit")
-        self.detailed_tree = ttk.Treeview(container, columns=columns, show="headings", height=10)
+        self.detailed_tree = ttk.Treeview(container, style="Custom.Treeview", columns=columns, show="headings", height=10)
         self.detailed_tree.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.detailed_tree.heading("Name", text="Name")
         self.detailed_tree.heading("DPS", text="DPS")
         self.detailed_tree.heading("Duration", text="Duration")
-        self.detailed_tree.heading("%Damage", text="% Damage")
         self.detailed_tree.heading("Crit%", text="Crit %")
         self.detailed_tree.heading("Highest Hit", text="Highest Hit")
 
@@ -197,8 +201,8 @@ class DPSWindow(tk.Tk):
         self.detailed_tree.column("Crit%", width=60, anchor="center")
         self.detailed_tree.column("Highest Hit", width=80, anchor="center")
 
+
     def show_settings_menu(self):
-        # Create a dropdown menu for settings options
         menu = tk.Menu(self, tearoff=0)
         menu.add_command(label="DPS Meter Tab", command=self.switch_to_dps_meter)
         menu.add_command(label="Detailed Tab", command=self.switch_to_detailed)
@@ -206,18 +210,28 @@ class DPSWindow(tk.Tk):
         menu.add_command(label="Increase Opacity", command=self.increase_opacity)
         menu.add_command(label="Decrease Opacity", command=self.decrease_opacity)
         menu.add_separator()
-        menu.add_command(label="Toggle Dark/Light Mode", command=self.toggle_dark_mode_via_menu)
-        # Popup the menu at the current pointer location
+        #menu.add_command(label="Toggle Dark/Light Mode", command=self.toggle_dark_mode_via_menu)
         try:
             menu.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
         finally:
             menu.grab_release()
 
+
+
     def switch_to_dps_meter(self):
-        self.notebook.select(self.meter_frame)
+        # Hide the detailed frame, show the DPS frame
+        self.detailed_frame.pack_forget()
+        self.dps_frame.pack(fill="both", expand=True)
+        # Optionally resize back to smaller width/height
+        self.geometry("300x350")
 
     def switch_to_detailed(self):
-        self.notebook.select(self.detailed_frame)
+    # Hide the DPS frame, show the detailed frame
+        self.dps_frame.pack_forget()
+        self.detailed_frame.pack(fill="both", expand=True)
+        # Optionally resize for a wider window
+        self.geometry("700x350")
+
 
     def increase_opacity(self):
         current = self.attributes("-alpha")
@@ -291,11 +305,17 @@ class DPSWindow(tk.Tk):
         self.style.map("Accent.TButton",
                        background=[("active", "#666666"), ("pressed", "#555555")]
                        )
+        # Configure the Treeview for dark mode
+        self.style.configure("Custom.Treeview",
+                             background=self.bg_color,
+                             fieldbackground=self.bg_color,
+                             foreground=self.text_color)
+        self.style.configure("Custom.Treeview.Heading",
+                             background=self.bg_color,
+                             foreground=self.text_color,
+                             font=("Roboto", 10, "bold"))
 
         self.configure(bg=self.bg_color)
-        self.notebook.configure(style="CustomNotebook.TNotebook")
-        self.opacity_scale.configure(bg=self.bg_color, fg=self.text_color, highlightbackground=self.bg_color)
-
         self.update_dps_area_theme()
 
     def update_dps_area_theme(self):
@@ -357,9 +377,15 @@ class DPSWindow(tk.Tk):
         max_damage = max((data["total_damage"] for _, data in sorted_actors), default=1)
 
         self.update_dps_tab(sorted_actors, max_damage, duration)
-        self.update_detailed_tab(sorted_actors, duration)
+
+        # Only update the detailed tab if it's packed (meaning currently visible).
+        # Check if 'detailed_frame' is managing geometry.
+        if self.detailed_frame.winfo_manager():
+            self.update_detailed_tab(sorted_actors, duration)
 
         self.after(1000, self.update_ui)
+
+
 
     def update_dps_tab(self, sorted_actors, max_damage, duration):
         current_actors = set(a for a, _ in sorted_actors)
