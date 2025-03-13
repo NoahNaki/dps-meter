@@ -26,6 +26,12 @@ class DPSWindow(tk.Tk):
         self._offset_x = 0
         self._offset_y = 0
 
+        # Variables for resizing
+        self._resize_start_x = 0
+        self._resize_start_y = 0
+        self._initial_width = 300
+        self._initial_height = 350
+
         # Default out-of-combat threshold (seconds) and last combat timestamp
         self.out_of_combat_threshold = 30  # default threshold seconds
         self.last_combat_time = datetime.now()
@@ -52,12 +58,8 @@ class DPSWindow(tk.Tk):
         # -----------------------------
         # 3) LOAD ICONS FROM URLS
         # -----------------------------
-        # Helper function to load an image from a URL
         def load_image_from_url(url, size=None):
-            import requests
-            from io import BytesIO
-            from PIL import Image
-            headers = {"User-Agent": "Mozilla/5.0"}  # Set headers to mimic a browser
+            headers = {"User-Agent": "Mozilla/5.0"}  # Mimic a browser
             response = requests.get(url, headers=headers)
             response.raise_for_status()
             image_data = BytesIO(response.content)
@@ -66,32 +68,28 @@ class DPSWindow(tk.Tk):
                 pil_image = pil_image.resize(size, Image.Resampling.LANCZOS)
             return pil_image
 
-    # Corrected URLs:
         gear_url = "https://raw.githubusercontent.com/NoahNaki/dps-meter/main/assets/gear.png"
         info_url = "https://raw.githubusercontent.com/NoahNaki/dps-meter/main/assets/infobubble.png"
         cross_url = "https://raw.githubusercontent.com/NoahNaki/dps-meter/main/assets/cross.png"
         bin_url   = "https://raw.githubusercontent.com/NoahNaki/dps-meter/main/assets/bin.png"
 
-
-# Safely load each icon (16x16 as per your original code)
         try:
-            cogwheel_pil      = load_image_from_url(gear_url, size=(16, 16))
+            cogwheel_pil = load_image_from_url(gear_url, size=(16, 16))
             self.cogwheel_img = ImageTk.PhotoImage(cogwheel_pil)
 
-            info_pil          = load_image_from_url(info_url, size=(16, 16))
-            self.info_img     = ImageTk.PhotoImage(info_pil)
+            info_pil = load_image_from_url(info_url, size=(16, 16))
+            self.info_img = ImageTk.PhotoImage(info_pil)
 
-            x_pil             = load_image_from_url(cross_url, size=(16, 16))
-            self.x_img        = ImageTk.PhotoImage(x_pil)
+            x_pil = load_image_from_url(cross_url, size=(16, 16))
+            self.x_img = ImageTk.PhotoImage(x_pil)
 
-            bin_pil           = load_image_from_url(bin_url, size=(16, 16))
+            bin_pil = load_image_from_url(bin_url, size=(16, 16))
             self.data_cleaning_img = ImageTk.PhotoImage(bin_pil)
         except Exception as e:
-            # Fallback: If any image fails to load, you can handle it here
             print(f"[DEBUG] Failed to load one of the icons: {e}")
-            self.cogwheel_img      = None
-            self.info_img          = None
-            self.x_img             = None
+            self.cogwheel_img = None
+            self.info_img = None
+            self.x_img = None
             self.data_cleaning_img = None
 
         # -----------------------------
@@ -115,7 +113,7 @@ class DPSWindow(tk.Tk):
             borderwidth=0,
             highlightthickness=0,
             activebackground=top_bar_bg,
-            command=self.open_info_link  # We'll define open_info_link() below
+            command=self.open_info_link
         )
         self.info_button.pack(side="right", padx=5)
 
@@ -126,7 +124,7 @@ class DPSWindow(tk.Tk):
             borderwidth=0,
             highlightthickness=0,
             activebackground=top_bar_bg,
-            command=self.show_settings_menu  # Opens settings via a popup menu
+            command=self.show_settings_menu
         )
         self.cogwheel_button.pack(side="right", padx=5)
 
@@ -161,7 +159,6 @@ class DPSWindow(tk.Tk):
         self.detailed_frame = tk.Frame(self, bg=self.bg_color)
         self.settings_frame = tk.Frame(self, bg=self.bg_color)  # New settings frame
 
-        # Build each UI
         self.build_dps_ui(self.dps_frame)
         self.build_detailed_ui(self.detailed_frame)
         self.build_settings_ui(self.settings_frame)
@@ -171,10 +168,19 @@ class DPSWindow(tk.Tk):
 
         # Apply theme and start UI updates
         self.apply_theme()
+
+        # -----------------------------
+        # 7) CUSTOM RESIZER WIDGET
+        # -----------------------------
+        self.resizer = tk.Label(self, text="⇲", bg=self.bg_color, fg=self.text_color, cursor="size_nw_se")
+        self.resizer.place(relx=1.0, rely=1.0, anchor="se")
+        self.resizer.bind("<Button-1>", self.start_resize)
+        self.resizer.bind("<B1-Motion>", self.on_resize)
+
         self.update_ui()
 
     # -----------------------------
-    # 7) DRAGGABLE TITLE BAR
+    # 8) DRAGGABLE TITLE BAR
     # -----------------------------
     def start_move(self, event):
         self._offset_x = event.x
@@ -193,7 +199,7 @@ class DPSWindow(tk.Tk):
         self.iconify()
 
     # -----------------------------
-    # 8) SETTINGS / INFO MENU
+    # 9) SETTINGS / INFO MENU
     # -----------------------------
     def show_settings_menu(self):
         menu = tk.Menu(self, tearoff=0)
@@ -231,7 +237,7 @@ class DPSWindow(tk.Tk):
         self.geometry("700x350")
 
     # -----------------------------
-    # 9) BUILD THE DPS UI
+    # 10) BUILD THE DPS UI
     # -----------------------------
     def build_dps_ui(self, container):
         top_frame = tk.Frame(container, bg=self.bg_color)
@@ -244,17 +250,10 @@ class DPSWindow(tk.Tk):
         self.class_icons = self.load_class_icons()
 
     # -----------------------------
-    # 10) CLASS ICONS FROM URLS
+    # 11) CLASS ICONS FROM URLS
     # -----------------------------
     def load_class_icons(self):
-        """
-        Replace the placeholder URLs with actual links to your class icons.
-        We'll do a simple resize instead of subsample for PIL images.
-        """
         def load_image_from_url(url, size=None):
-            import requests
-            from io import BytesIO
-            from PIL import Image
             response = requests.get(url)
             response.raise_for_status()
             image_data = BytesIO(response.content)
@@ -264,17 +263,14 @@ class DPSWindow(tk.Tk):
             return pil_image
 
         try:
-            # Placeholder URLs
-            bm_url = "https://i.imgur.com/B40HVay.jpg"   # added .jpg
-            bd_url = "https://i.imgur.com/Efuw2We.jpg"    # adjust extension if needed
+            bm_url = "https://i.imgur.com/B40HVay.jpg"
+            bd_url = "https://i.imgur.com/Efuw2We.jpg"
             as_url = "https://i.imgur.com/eCPTk91.jpg"
             de_url = "https://i.imgur.com/FN6joij.jpg"
             fm_url = "https://i.imgur.com/6cVHqqd.jpg"
             kf_url = "https://i.imgur.com/J4Rm0ot.jpg"
             su_url = "https://i.imgur.com/bA2F5Ng.jpg"
 
-
-# For each icon, load and resize to (32, 32) or whatever size you prefer
             bm_pil = load_image_from_url(bm_url, size=(32, 32))
             bd_pil = load_image_from_url(bd_url, size=(32, 32))
             as_pil = load_image_from_url(as_url, size=(32, 32))
@@ -283,7 +279,6 @@ class DPSWindow(tk.Tk):
             kf_pil = load_image_from_url(kf_url, size=(32, 32))
             su_pil = load_image_from_url(su_url, size=(32, 32))
 
-            # Convert each PIL image to an ImageTk.PhotoImage
             bm_icon = ImageTk.PhotoImage(bm_pil)
             bd_icon = ImageTk.PhotoImage(bd_pil)
             as_icon = ImageTk.PhotoImage(as_pil)
@@ -306,10 +301,9 @@ class DPSWindow(tk.Tk):
             return {}
 
     # -----------------------------
-    # 11) BUILD THE SETTINGS UI
+    # 12) BUILD THE SETTINGS UI
     # -----------------------------
     def build_settings_ui(self, container):
-        # Opacity Slider
         opacity_label = ttk.Label(container, text="Window Opacity:", style="CustomLabel.TLabel")
         opacity_label.pack(pady=(10, 0))
 
@@ -327,7 +321,6 @@ class DPSWindow(tk.Tk):
         self.opacity_scale.set(1.0)
         self.opacity_scale.pack(pady=10, padx=10, fill="x")
 
-        # Out-of-Combat Reset Seconds Slider
         ooc_label = ttk.Label(container, text="Out-of-Combat Reset (sec):", style="CustomLabel.TLabel")
         ooc_label.pack(pady=(20, 0))
 
@@ -352,7 +345,7 @@ class DPSWindow(tk.Tk):
             print("Error updating out-of-combat threshold:", e)
 
     # -----------------------------
-    # 12) BUILD THE DETAILED UI
+    # 13) BUILD THE DETAILED UI
     # -----------------------------
     def build_detailed_ui(self, container):
         columns = ("Name", "DPS", "Duration", "%Damage", "Crit%", "Highest Hit")
@@ -374,7 +367,7 @@ class DPSWindow(tk.Tk):
         self.detailed_tree.column("Highest Hit", width=80, anchor="center")
 
     # -----------------------------
-    # 13) THEMING & UI UPDATES
+    # 14) THEMING & UI UPDATES
     # -----------------------------
     def apply_theme(self):
         self.style.configure(
@@ -443,7 +436,7 @@ class DPSWindow(tk.Tk):
             print("Error updating opacity:", e)
 
     # -----------------------------
-    # 14) MAIN UPDATE LOOP
+    # 15) MAIN UPDATE LOOP
     # -----------------------------
     def update_ui(self):
         stats = self.aggregator.get_stats()
@@ -457,14 +450,12 @@ class DPSWindow(tk.Tk):
         )
         max_damage = max((data["total_damage"] for _, data in sorted_actors), default=1)
 
-        # Check for combat activity.
         if any(data.get("events", 0) > 0 for _, data in sorted_actors):
             self.last_combat_time = now
             print(f"[DEBUG] Combat detected. Updating last_combat_time to {self.last_combat_time}.")
         else:
             time_since_last_combat = (now - self.last_combat_time).total_seconds()
             print(f"[DEBUG] No combat activity. Time since last combat: {time_since_last_combat:.2f} seconds.")
-            # If we've been out-of-combat for longer than the threshold, reset the meter.
             if time_since_last_combat >= self.out_of_combat_threshold:
                 print(f"[DEBUG] Out-of-combat threshold reached ({time_since_last_combat:.2f} seconds). Resetting meter.")
                 self.reset_meter()
@@ -472,26 +463,23 @@ class DPSWindow(tk.Tk):
 
         self.update_dps_tab(sorted_actors, max_damage, duration)
 
-        # Only update the detailed tab if it's visible.
         if self.detailed_frame.winfo_manager():
             self.update_detailed_tab(sorted_actors, duration)
 
         self.after(1000, self.update_ui)
 
     # -----------------------------
-    # 15) DPS TAB
+    # 16) DPS TAB
     # -----------------------------
     def update_dps_tab(self, sorted_actors, max_damage, duration):
         current_actors = set(a for a, _ in sorted_actors)
         existing_actors = set(self.row_widgets.keys())
 
-        # Remove actors that no longer appear
         for actor in existing_actors - current_actors:
             frame, canvas = self.row_widgets[actor]
             frame.destroy()
             del self.row_widgets[actor]
 
-        # Add/update current actors
         for actor, data in sorted_actors:
             if actor not in self.row_widgets:
                 row_frame = tk.Frame(self.rows_frame, bg=self.bg_color)
@@ -565,14 +553,13 @@ class DPSWindow(tk.Tk):
                 font=("Roboto", 10, "bold")
             )
 
-        # Re-pack actors in sorted order
         for idx, (actor, data) in enumerate(sorted_actors):
             row_frame, _ = self.row_widgets[actor]
             row_frame.pack_forget()
             row_frame.pack(fill="x", pady=(0 if idx == 0 else self.BAR_SPACING))
 
     # -----------------------------
-    # 16) DETAILED TAB
+    # 17) DETAILED TAB
     # -----------------------------
     def update_detailed_tab(self, sorted_actors, duration):
         for item in self.detailed_tree.get_children():
@@ -608,7 +595,7 @@ class DPSWindow(tk.Tk):
             )
 
     # -----------------------------
-    # 17) RESET METER
+    # 18) RESET METER
     # -----------------------------
     def reset_meter(self):
         self.aggregator.reset()
@@ -618,7 +605,7 @@ class DPSWindow(tk.Tk):
             del self.row_widgets[actor]
 
     # -----------------------------
-    # 18) ROUNDED RECTANGLE UTILITY
+    # 19) ROUNDED RECTANGLE UTILITY
     # -----------------------------
     def create_rounded_rectangle(canvas, x1, y1, x2, y2, radius=10, **kwargs):
         radius = min(radius, abs(x2 - x1) // 2, abs(y2 - y1) // 2)
@@ -634,7 +621,23 @@ class DPSWindow(tk.Tk):
         canvas.create_rectangle(x1, y1 + radius, x2, y2 - radius, **kwargs)
 
     # -----------------------------
-    # 19) OPTIONAL: MAKE WINDOW APPWINDOW
+    # 20) CUSTOM RESIZE HANDLERS
+    # -----------------------------
+    def start_resize(self, event):
+        self._resize_start_x = event.x_root
+        self._resize_start_y = event.y_root
+        self._initial_width = self.winfo_width()
+        self._initial_height = self.winfo_height()
+
+    def on_resize(self, event):
+        dx = event.x_root - self._resize_start_x
+        dy = event.y_root - self._resize_start_y
+        new_width = max(300, self._initial_width + dx)
+        new_height = max(50, self._initial_height + dy)
+        self.geometry(f"{new_width}x{new_height}")
+
+    # -----------------------------
+    # 21) OPTIONAL: MAKE WINDOW APPWINDOW
     # -----------------------------
     def _make_window_appwindow(self):
         GWL_EXSTYLE = -20
