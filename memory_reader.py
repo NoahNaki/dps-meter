@@ -19,7 +19,8 @@ kernel32.ReadProcessMemory.restype = wintypes.BOOL
 class MemoryReader:
     PROCESS_NAME = "BNSR.exe"
     COMBAT_LOG_LENGTH = 600
-    OFFSETS = [0x07423C90, 0x490, 0x490, 0x670, 0x8, 0x70]
+    OFFSETS = [0x07485098, 0x490, 0x490, 0x670, 0x8, 0x70]
+    POINTER_CHAIN_VALIDITY = 5  # seconds before revalidating pointer chain
 
     def __init__(self):
         self.pid = self.get_process_id(self.PROCESS_NAME)
@@ -30,6 +31,10 @@ class MemoryReader:
         if not self.base_module_address:
             raise Exception("Failed to get base module address.")
         print(f"[DEBUG] Base module address: 0x{self.base_module_address:016X}")
+
+        # Initialize caching for the pointer chain
+        self.cached_chat_address = None
+        self.last_chain_validation = 0
 
     def get_process_id(self, process_name):
         for proc in psutil.process_iter(attrs=["pid", "name"]):
@@ -76,23 +81,46 @@ class MemoryReader:
         if data is None:
             raise Exception(f"Failed to read memory at 0x{addr:016X}")
         pointer = struct.unpack("Q", data)[0]
-        if pointer != 0:
-            print(f"[DEBUG] Read pointer at offset 0x{offset:X}: 0x{pointer:016X}")
+        hex_pointer = f"0x{pointer:016X}"
+        if not hex_pointer.startswith("0x0000"):
+            print(f"[DEBUG] Read pointer at offset 0x{offset:X}: {hex_pointer}")
         return pointer
+
 
     def resolve_pointer_chain(self):
         current_address = self.base_module_address
         for i, offset in enumerate(self.OFFSETS[:-1]):
-            current_address = self.read_pointer(current_address, offset)
-            if current_address == 0:
-                raise Exception(f"Null pointer encountered at offset index {i}")
+            try:
+                current_address = self.read_pointer(current_address, offset)
+                if current_address == 0:
+                    print(f"[DEBUG] Null pointer encountered at index {i} (offset: 0x{offset:X}).")
+                    raise Exception(f"Null pointer encountered at offset index {i}")
+                else:
+                    print(f"[DEBUG] Pointer at index {i} (offset: 0x{offset:X}): 0x{current_address:016X}")
+            except Exception as e:
+                print(f"[DEBUG] Exception at pointer index {i} (offset: 0x{offset:X}): {e}")
+                raise
         return current_address
+
+
+    def get_cached_chat_address(self):
+        import time
+        # Revalidate if the cached address is too old or not set
+        if (time.time() - self.last_chain_validation > self.POINTER_CHAIN_VALIDITY or
+                self.cached_chat_address is None):
+            try:
+                self.cached_chat_address = self.resolve_pointer_chain()
+                self.last_chain_validation = time.time()
+                print(f"[DEBUG] Updated cached combat log base address: 0x{self.cached_chat_address:016X}")
+            except Exception as e:
+                raise Exception("Failed to revalidate pointer chain: " + str(e))
+        return self.cached_chat_address
 
     def get_combat_chat_log(self):
         lines = []
         try:
-            base_chat_address = self.resolve_pointer_chain()
-            print(f"[DEBUG] Resolved combat log base address: 0x{base_chat_address:016X}")
+            base_chat_address = self.get_cached_chat_address()
+            print(f"[DEBUG] Using combat log base address: 0x{base_chat_address:016X}")
             entry_stride = self.OFFSETS[-1]
             for i in range(self.COMBAT_LOG_LENGTH):
                 try:
@@ -116,6 +144,8 @@ class MemoryReader:
             raise Exception("Error reading combat chat log: " + str(ex))
         return lines
 
+
+
     def read_string(self, data, size):
         terminator = data.find(b'\x00\x00')
         if terminator != -1:
@@ -124,3 +154,5 @@ class MemoryReader:
             return data.decode("utf-16le", errors="ignore")
         except Exception:
             return ""
+
+

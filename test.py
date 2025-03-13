@@ -1,69 +1,47 @@
 import tkinter as tk
+from tkinter import messagebox
+from PIL import Image, ImageTk
+import requests
+from io import BytesIO
 
 def main():
+    # Direct image URL (converted from the Imgur page URL)
+    url = "https://i.imgur.com/B40HVay.jpg"
+
+    # Define headers to mimic a browser request
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+
+    try:
+        # Download the image from the URL with headers
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Raise an error if the download fails
+    except requests.exceptions.RequestException as e:
+        print("Error fetching the image:", e)
+        return
+
+    # Open the image using Pillow and convert it to a format Tkinter can use
+    img_data = response.content
+    pil_image = Image.open(BytesIO(img_data))
+
+    # (Optional) Resize the image if needed
+    # pil_image = pil_image.resize((200, 200))
+
     # Create the main window
     root = tk.Tk()
-    root.title("Infernal Lord UI")
-    # Optionally set a fixed size or leave it to adjust automatically
-    # root.geometry("300x150")
+    root.title("Button with Image")
 
-    # --- Top Bar / Title Bar ---
-    top_bar_bg = "#2E3B40"  # Adjust as needed to match your desired color
-    top_bar = tk.Frame(root, bg=top_bar_bg)
-    top_bar.pack(side="top", fill="x")
+    # Convert the Pillow image to a Tkinter PhotoImage
+    tk_image = ImageTk.PhotoImage(pil_image)
 
-    # Title label
-    title_label = tk.Label(
-        top_bar,
-        text="Infernal Lord",
-        bg=top_bar_bg,
-        fg="white",
-        font=("Helvetica", 12, "bold")
-    )
-    title_label.pack(side="left", padx=10, pady=5)
+    # Define a function to be called when the button is clicked
+    def on_button_click():
+        messagebox.showinfo("Button Clicked", "You clicked the button!")
 
-    # Load images (update paths if needed)
-    cogwheel_img = tk.PhotoImage(file=r"C:\Users\noahs\Desktop\dreadps\assets\cogwheel.png")
-    share_img    = tk.PhotoImage(file=r"C:\Users\noahs\Desktop\dreadps\assets\share.png")
-    info_img     = tk.PhotoImage(file=r"C:\Users\noahs\Desktop\dreadps\assets\info.png")
-    x_img        = tk.PhotoImage(file=r"C:\Users\noahs\Desktop\dreadps\assets\x.png")
-
-    # Create icon buttons
-    # (no commands assigned yet — they're placeholders)
-    # Adjust button styling as desired
-    cogwheel_btn = tk.Button(top_bar, image=cogwheel_img, bg=top_bar_bg,
-                             borderwidth=0, highlightthickness=0,
-                             activebackground=top_bar_bg)
-    cogwheel_btn.pack(side="right", padx=5)
-
-    share_btn = tk.Button(top_bar, image=share_img, bg=top_bar_bg,
-                          borderwidth=0, highlightthickness=0,
-                          activebackground=top_bar_bg)
-    share_btn.pack(side="right", padx=5)
-
-    info_btn = tk.Button(top_bar, image=info_img, bg=top_bar_bg,
-                         borderwidth=0, highlightthickness=0,
-                         activebackground=top_bar_bg)
-    info_btn.pack(side="right", padx=5)
-
-    x_btn = tk.Button(top_bar, image=x_img, bg=top_bar_bg,
-                      borderwidth=0, highlightthickness=0,
-                      activebackground=top_bar_bg)
-    x_btn.pack(side="right", padx=5)
-
-    # --- Main Content Area (placeholder) ---
-    content_bg = "#3C4550"  # Adjust as needed
-    content_frame = tk.Frame(root, bg=content_bg)
-    content_frame.pack(fill="both", expand=True)
-
-    # Just a placeholder label in the content area
-    placeholder_label = tk.Label(
-        content_frame,
-        text="(Main UI Content Goes Here)",
-        bg=content_bg,
-        fg="white"
-    )
-    placeholder_label.pack(pady=20)
+    # Create a button that displays the image and triggers the function when clicked
+    button = tk.Button(root, image=tk_image, command=on_button_click)
+    button.pack(padx=10, pady=10)
 
     # Start the Tkinter event loop
     root.mainloop()
