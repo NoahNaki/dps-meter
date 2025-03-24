@@ -19,7 +19,7 @@ kernel32.ReadProcessMemory.restype = wintypes.BOOL
 class MemoryReader:
     PROCESS_NAME = "BNSR.exe"
     COMBAT_LOG_LENGTH = 600
-    OFFSETS = [0x07485098, 0x490, 0x490, 0x670, 0x8, 0x70]
+    OFFSETS = [0x7485118, 0xA0, 0x670, 0x8]
     POINTER_CHAIN_VALIDITY = 5  # seconds before revalidating pointer chain
 
     def __init__(self):

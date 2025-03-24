@@ -48,7 +48,7 @@ class DPSWindow(tk.Tk):
 
         self.title_label = tk.Label(
             self.custom_title_bar,
-            text="Dread DPS Meter",
+            text="DPS Meter",
             fg="white",
             bg=top_bar_bg,
             font=("Helvetica", 12, "bold")
@@ -439,7 +439,24 @@ class DPSWindow(tk.Tk):
     # 15) MAIN UPDATE LOOP
     # -----------------------------
     def update_ui(self):
-        stats = self.aggregator.get_stats()
+        try:
+            stats = self.aggregator.get_stats()
+        except Exception as e:
+            error_message = str(e)
+            print(f"[DEBUG] Error reading memory: {error_message}")
+            if "Failed to revalidate pointer chain" in error_message:
+                print("[DEBUG] Attempting to rebind memory addresses...")
+                try:
+                    # Attempt to rebind the memory addresses
+                    self.aggregator.rebind_memory()
+                    # Try getting the stats again after rebinding
+                    stats = self.aggregator.get_stats()
+                except Exception as rebind_exception:
+                    print(f"[DEBUG] Rebinding failed: {rebind_exception}")
+                    stats = {}
+            else:
+                stats = {}
+
         now = datetime.now()
         duration = (now - self.aggregator.global_start_time).total_seconds() if self.aggregator.global_start_time else 0
 
@@ -467,6 +484,7 @@ class DPSWindow(tk.Tk):
             self.update_detailed_tab(sorted_actors, duration)
 
         self.after(1000, self.update_ui)
+
 
     # -----------------------------
     # 16) DPS TAB
